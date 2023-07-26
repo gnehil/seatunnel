@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.doris.sink;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import com.google.auto.service.AutoService;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -37,17 +37,19 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.config.CheckConfigUtil;
 import org.apache.seatunnel.common.config.CheckResult;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.doris.catalog.DorisCatalog;
+import org.apache.seatunnel.connectors.doris.catalog.DorisCatalogFactory;
 import org.apache.seatunnel.connectors.doris.config.DorisConfig;
 import org.apache.seatunnel.connectors.doris.config.DorisOptions;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfo;
 import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfoSerializer;
 import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitter;
+import org.apache.seatunnel.connectors.doris.sink.savemode.DorisSaveModeHandler;
 import org.apache.seatunnel.connectors.doris.sink.writer.DorisSinkState;
 import org.apache.seatunnel.connectors.doris.sink.writer.DorisSinkStateSerializer;
 import org.apache.seatunnel.connectors.doris.sink.writer.DorisSinkWriter;
-
-import com.google.auto.service.AutoService;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -165,6 +167,25 @@ public class DorisSink
 
     @Override
     public Optional<SaveModeHandler> getSaveModeHandler() {
-        return Optional.empty();
+
+        if (catalogTable == null) {
+            return Optional.empty();
+        }
+
+        if (StringUtils.isBlank(dorisConfig.getTableIdentifier())) {
+            return Optional.empty();
+        }
+
+        DorisCatalogFactory factory = new DorisCatalogFactory();
+        DorisCatalog catalog = (DorisCatalog) factory.createCatalog("doris", dorisConfig.getCatalogConfig());
+
+        return Optional.of(new DorisSaveModeHandler(
+                dorisConfig.getSchemaSaveMode(),
+                dorisConfig.getDataSaveMode(),
+                catalog,
+                catalogTable.getTableId().toTablePath(),
+                catalogTable,
+                dorisConfig.getCustomSql())
+        );
     }
 }

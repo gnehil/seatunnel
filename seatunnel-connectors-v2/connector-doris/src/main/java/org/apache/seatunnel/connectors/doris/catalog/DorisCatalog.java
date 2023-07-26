@@ -294,7 +294,7 @@ public class DorisCatalog implements Catalog {
         try (Statement stmt = conn.createStatement()) {
             stmt.execute(query);
         } catch (SQLException e) {
-            throw new CatalogException(e);
+            throw new CatalogException(String.format("drop table [%s] failed", tablePath.getFullName()), e);
         }
     }
 
@@ -323,6 +323,45 @@ public class DorisCatalog implements Catalog {
         } catch (SQLException e) {
             throw new CatalogException(
                     String.format("drop database [%s] failed", tablePath.getDatabaseName()), e);
+        }
+    }
+
+    @Override
+    public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists) throws TableNotExistException, CatalogException {
+        if (!tableExists(tablePath) && !ignoreIfNotExists) {
+            throw new TableNotExistException(catalogName, tablePath);
+        }
+        String query = DorisCatalogUtil.getTruncateTableQuery(tablePath);
+        try (Statement stmt = conn.createStatement()) {
+            stmt.executeUpdate(query);
+        } catch (SQLException e) {
+            throw new CatalogException(String.format("truncate table [%s] failed", tablePath.getFullName()),
+                    e);
+        }
+    }
+
+    @Override
+    public boolean isExistsData(TablePath tablePath) {
+        String query = DorisCatalogUtil.getTableDataSizeQuery(tablePath);
+        try (Statement stmt = conn.createStatement()) {
+            ResultSet rs = stmt.executeQuery(query);
+            if (rs.next()) {
+                long size = rs.getLong(1);
+                return size > 0;
+            }
+        } catch (SQLException e) {
+            throw new CatalogException(String.format("get table [%s] data size failed", tablePath.getFullName()),
+                    e);
+        }
+        return false;
+    }
+
+    @Override
+    public void executeSql(TablePath tablePath, String sql) {
+        try (Statement stmt = conn.createStatement()) {
+            stmt.execute(sql);
+        } catch (SQLException e) {
+            throw new CatalogException(String.format("execute sql failed, sql: %s", sql), e);
         }
     }
 

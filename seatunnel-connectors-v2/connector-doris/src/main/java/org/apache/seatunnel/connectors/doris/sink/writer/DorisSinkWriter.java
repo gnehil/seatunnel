@@ -265,7 +265,7 @@ public class DorisSinkWriter implements SinkWriter<SeaTunnelRow, DorisCommitInfo
         return new SeaTunnelRowSerializer(
                 dorisConfig
                         .getStreamLoadProps()
-                        .getProperty(LoadConstants.FORMAT_KEY)
+                        .getProperty(LoadConstants.FORMAT_KEY, LoadConstants.CSV)
                         .toLowerCase(),
                 seaTunnelRowType,
                 dorisConfig.getStreamLoadProps().getProperty(LoadConstants.FIELD_DELIMITER_KEY),

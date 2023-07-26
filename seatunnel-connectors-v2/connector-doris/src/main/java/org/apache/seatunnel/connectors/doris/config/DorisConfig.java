@@ -17,18 +17,20 @@
 
 package org.apache.seatunnel.connectors.doris.config;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
+import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DEFAULT_DATABASE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_DESERIALIZE_ARROW_ASYNC;
 import static org.apache.seatunnel.connectors.doris.config.DorisOptions.DORIS_DESERIALIZE_QUEUE_SIZE;
@@ -93,6 +95,14 @@ public class DorisConfig implements Serializable {
     // create table option
     private String createTableTemplate;
 
+    // save mode
+    private DataSaveMode dataSaveMode;
+    private SchemaSaveMode schemaSaveMode;
+    private String customSql;
+
+    // catalog
+    private String defaultDatabase;
+
     public static DorisConfig of(Config pluginConfig) {
         return of(ReadonlyConfig.fromConfig(pluginConfig));
     }
@@ -133,6 +143,14 @@ public class DorisConfig implements Serializable {
         // create table option
         dorisConfig.setCreateTableTemplate(config.get(SAVE_MODE_CREATE_TEMPLATE));
 
+        // save mode
+        dorisConfig.setDataSaveMode(config.get(DorisOptions.DATA_SAVE_MODE));
+        dorisConfig.setSchemaSaveMode(config.get(DorisOptions.SCHEMA_SAVE_MODE));
+        dorisConfig.setCustomSql(config.get(DorisOptions.CUSTOM_SQL));
+
+        // catalog
+        dorisConfig.setDefaultDatabase(config.get(DEFAULT_DATABASE));
+
         return dorisConfig;
     }
 
@@ -147,4 +165,16 @@ public class DorisConfig implements Serializable {
         }
         return streamLoadProps;
     }
+
+    public ReadonlyConfig getCatalogConfig() {
+        Map<String, Object> map = new HashMap<>();
+        map.put(FENODES.key(), frontends);
+        map.put(QUERY_PORT.key(), queryPort);
+        map.put(USERNAME.key(), username);
+        map.put(PASSWORD.key(), password);
+        map.put(DEFAULT_DATABASE.key(), defaultDatabase);
+        map.put(SAVE_MODE_CREATE_TEMPLATE.key(), createTableTemplate);
+        return ReadonlyConfig.fromMap(map);
+    }
+
 }

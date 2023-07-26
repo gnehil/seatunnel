@@ -66,6 +66,10 @@ public class DorisCatalogUtil {
                     + "WHERE TABLE_CATALOG = 'internal' AND TABLE_SCHEMA = ? AND TABLE_NAME = ? "
                     + "ORDER BY ORDINAL_POSITION";
 
+    public static final String TRUNCATE_TABLE_QUERY = "TRUNCATE TABLE %s";
+
+    public static final String TABLE_DATA_SIZE_QUERY = "SELECT COUNT(*) FROM %s";
+
     public static String randomFrontEndHost(String[] frontEndNodes) {
         if (frontEndNodes.length == 1) {
             return frontEndNodes[0].split(":")[0];
@@ -179,6 +183,14 @@ public class DorisCatalogUtil {
             }
         }
         return template;
+    }
+
+    public static String getTruncateTableQuery(TablePath tablePath) {
+        return String.format(TRUNCATE_TABLE_QUERY, tablePath.getFullNameWithQuoted());
+    }
+
+    public static String getTableDataSizeQuery(TablePath tablePath) {
+        return String.format(TABLE_DATA_SIZE_QUERY, tablePath.getFullNameWithQuoted());
     }
 
     public static SeaTunnelDataType<?> fromDorisType(ResultSet rs) throws SQLException {
