@@ -24,7 +24,7 @@ seatunnel:
             dynamic-slot: true
         checkpoint:
             interval: 300000
-            timeout: 300000
+            timeout: 10000
             storage:
                 type: hdfs
                 max-retained: 3
