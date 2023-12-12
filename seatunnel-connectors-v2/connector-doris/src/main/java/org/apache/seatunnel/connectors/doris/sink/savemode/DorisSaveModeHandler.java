@@ -40,8 +40,13 @@ public class DorisSaveModeHandler implements SaveModeHandler {
 
     private String customSql;
 
-    public DorisSaveModeHandler(SchemaSaveMode schemaSaveMode, DataSaveMode dataSaveMode, DorisCatalog catalog,
-                                TablePath tablePath, CatalogTable catalogTable, String customSql) {
+    public DorisSaveModeHandler(
+            SchemaSaveMode schemaSaveMode,
+            DataSaveMode dataSaveMode,
+            DorisCatalog catalog,
+            TablePath tablePath,
+            CatalogTable catalogTable,
+            String customSql) {
         this.schemaSaveMode = schemaSaveMode;
         this.dataSaveMode = dataSaveMode;
         this.catalog = catalog;
@@ -65,14 +70,16 @@ public class DorisSaveModeHandler implements SaveModeHandler {
                 break;
             case ERROR_WHEN_SCHEMA_NOT_EXIST:
                 if (!catalog.tableExists(tablePath)) {
-                    String msg = String.format("Table [%s] is not exists.", tablePath.getFullName());
-                    throw new SeaTunnelRuntimeException(SeaTunnelAPIErrorCode.SINK_TABLE_NOT_EXIST, msg);
+                    String msg =
+                            String.format("Table [%s] is not exists.", tablePath.getFullName());
+                    throw new SeaTunnelRuntimeException(
+                            SeaTunnelAPIErrorCode.SINK_TABLE_NOT_EXIST, msg);
                 }
                 break;
             default:
-                throw new IllegalArgumentException(String.format("Unsupported schema save mode: %s", schemaSaveMode));
+                throw new IllegalArgumentException(
+                        String.format("Unsupported schema save mode: %s", schemaSaveMode));
         }
-
     }
 
     @Override
@@ -88,21 +95,19 @@ public class DorisSaveModeHandler implements SaveModeHandler {
             case ERROR_WHEN_DATA_EXISTS:
                 if (catalog.isExistsData(tablePath)) {
                     String msg = String.format("Table [%s] has data", tablePath.getFullName());
-                    throw new SeaTunnelRuntimeException(SeaTunnelAPIErrorCode.SOURCE_ALREADY_HAS_DATA, msg);
+                    throw new SeaTunnelRuntimeException(
+                            SeaTunnelAPIErrorCode.SOURCE_ALREADY_HAS_DATA, msg);
                 }
                 break;
             case CUSTOM_PROCESSING:
                 catalog.executeSql(tablePath, customSql);
                 break;
             default:
-                throw new IllegalArgumentException(String.format("Unsupported data save mode: %s", dataSaveMode));
+                throw new IllegalArgumentException(
+                        String.format("Unsupported data save mode: %s", dataSaveMode));
         }
-
     }
 
     @Override
-    public void close() throws Exception {
-
-    }
-
+    public void close() throws Exception {}
 }

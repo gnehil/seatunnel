@@ -294,7 +294,8 @@ public class DorisCatalog implements Catalog {
         try (Statement stmt = conn.createStatement()) {
             stmt.execute(query);
         } catch (SQLException e) {
-            throw new CatalogException(String.format("drop table [%s] failed", tablePath.getFullName()), e);
+            throw new CatalogException(
+                    String.format("drop table [%s] failed", tablePath.getFullName()), e);
         }
     }
 
@@ -327,7 +328,8 @@ public class DorisCatalog implements Catalog {
     }
 
     @Override
-    public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists) throws TableNotExistException, CatalogException {
+    public void truncateTable(TablePath tablePath, boolean ignoreIfNotExists)
+            throws TableNotExistException, CatalogException {
         if (!tableExists(tablePath) && !ignoreIfNotExists) {
             throw new TableNotExistException(catalogName, tablePath);
         }
@@ -335,8 +337,8 @@ public class DorisCatalog implements Catalog {
         try (Statement stmt = conn.createStatement()) {
             stmt.executeUpdate(query);
         } catch (SQLException e) {
-            throw new CatalogException(String.format("truncate table [%s] failed", tablePath.getFullName()),
-                    e);
+            throw new CatalogException(
+                    String.format("truncate table [%s] failed", tablePath.getFullName()), e);
         }
     }
 
@@ -350,8 +352,8 @@ public class DorisCatalog implements Catalog {
                 return size > 0;
             }
         } catch (SQLException e) {
-            throw new CatalogException(String.format("get table [%s] data size failed", tablePath.getFullName()),
-                    e);
+            throw new CatalogException(
+                    String.format("get table [%s] data size failed", tablePath.getFullName()), e);
         }
         return false;
     }

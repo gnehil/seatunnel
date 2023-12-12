@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.doris.sink;
 
-import com.google.auto.service.AutoService;
-import org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.PrepareFailException;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
@@ -49,7 +49,10 @@ import org.apache.seatunnel.connectors.doris.sink.savemode.DorisSaveModeHandler;
 import org.apache.seatunnel.connectors.doris.sink.writer.DorisSinkState;
 import org.apache.seatunnel.connectors.doris.sink.writer.DorisSinkStateSerializer;
 import org.apache.seatunnel.connectors.doris.sink.writer.DorisSinkWriter;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import org.apache.commons.lang3.StringUtils;
+
+import com.google.auto.service.AutoService;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -177,15 +180,16 @@ public class DorisSink
         }
 
         DorisCatalogFactory factory = new DorisCatalogFactory();
-        DorisCatalog catalog = (DorisCatalog) factory.createCatalog("doris", dorisConfig.getCatalogConfig());
+        DorisCatalog catalog =
+                (DorisCatalog) factory.createCatalog("doris", dorisConfig.getCatalogConfig());
 
-        return Optional.of(new DorisSaveModeHandler(
-                dorisConfig.getSchemaSaveMode(),
-                dorisConfig.getDataSaveMode(),
-                catalog,
-                catalogTable.getTableId().toTablePath(),
-                catalogTable,
-                dorisConfig.getCustomSql())
-        );
+        return Optional.of(
+                new DorisSaveModeHandler(
+                        dorisConfig.getSchemaSaveMode(),
+                        dorisConfig.getDataSaveMode(),
+                        catalog,
+                        catalogTable.getTableId().toTablePath(),
+                        catalogTable,
+                        dorisConfig.getCustomSql()));
     }
 }

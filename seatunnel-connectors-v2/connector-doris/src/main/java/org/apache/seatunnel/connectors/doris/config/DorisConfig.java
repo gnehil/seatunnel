@@ -17,13 +17,15 @@
 
 package org.apache.seatunnel.connectors.doris.config;
 
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
 import java.io.Serializable;
 import java.util.HashMap;
@@ -176,5 +178,4 @@ public class DorisConfig implements Serializable {
         map.put(SAVE_MODE_CREATE_TEMPLATE.key(), createTableTemplate);
         return ReadonlyConfig.fromMap(map);
     }
-
 }
