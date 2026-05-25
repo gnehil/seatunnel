@@ -78,8 +78,10 @@ public class UnsupportedTypeConverterUtils {
                 ByteBuffer buffer = (ByteBuffer) row.getField(i);
                 if (sqlType == SqlType.FLOAT_VECTOR) {
                     fields[i] = VectorUtils.toFloatArray(buffer);
+                } else if (sqlType == SqlType.FLOAT16_VECTOR) {
+                    fields[i] = decodeFloat16Vector(buffer);
                 } else {
-                    fields[i] = decodeHalfPrecisionVector(buffer);
+                    fields[i] = decodeBFloat16Vector(buffer);
                 }
                 log.debug(
                         "Converted vector field '{}' from {} to float array",
@@ -94,10 +96,10 @@ public class UnsupportedTypeConverterUtils {
     }
 
     /**
-     * Decode a ByteBuffer containing half-precision (2-byte) floats to a Float array of
-     * single-precision (4-byte) floats. Used for FLOAT16_VECTOR and BFLOAT16_VECTOR.
+     * Decode a ByteBuffer containing IEEE 754 half-precision (1+5+10) floats to Float array.
+     * Format: 1 sign bit, 5 exponent bits (bias 15), 10 mantissa bits.
      */
-    private static Float[] decodeHalfPrecisionVector(ByteBuffer buffer) {
+    private static Float[] decodeFloat16Vector(ByteBuffer buffer) {
         int numElements = buffer.remaining() / 2;
         Float[] result = new Float[numElements];
         for (int i = 0; i < numElements; i++) {
@@ -110,14 +112,12 @@ public class UnsupportedTypeConverterUtils {
                 if (mantissa == 0) {
                     floatBits = sign << 31;
                 } else {
-                    int e = -1;
-                    int m = mantissa;
-                    while ((m & 0x400) == 0) {
-                        m <<= 1;
-                        e--;
-                    }
-                    m &= 0x3FF;
-                    floatBits = (sign << 31) | ((e + 127) << 23) | (m << 13);
+                    int leadingZeros = Integer.numberOfLeadingZeros(mantissa) - 22;
+                    mantissa <<= (leadingZeros + 1);
+                    floatBits =
+                            (sign << 31)
+                                    | ((-14 - leadingZeros + 127) << 23)
+                                    | ((mantissa & 0x3FF) << 13);
                 }
             } else if (exponent == 31) {
                 if (mantissa == 0) {
@@ -130,6 +130,20 @@ public class UnsupportedTypeConverterUtils {
                         (sign << 31) | ((exponent - 15 + 127) << 23) | (mantissa << 13);
             }
             result[i] = Float.intBitsToFloat(floatBits);
+        }
+        return result;
+    }
+
+    /**
+     * Decode a ByteBuffer containing BFLOAT16 (1+8+7) floats to Float array. BFLOAT16 is the top
+     * 16 bits of an IEEE 754 32-bit float. Conversion is a simple left shift by 16.
+     */
+    private static Float[] decodeBFloat16Vector(ByteBuffer buffer) {
+        int numElements = buffer.remaining() / 2;
+        Float[] result = new Float[numElements];
+        for (int i = 0; i < numElements; i++) {
+            int bits = buffer.getShort() & 0xFFFF;
+            result[i] = Float.intBitsToFloat(bits << 16);
         }
         return result;
     }
