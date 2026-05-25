@@ -62,8 +62,7 @@ public class UnsupportedTypeConverterUtils {
         return new SeaTunnelRow(newValues.toArray());
     }
 
-    public static SeaTunnelRow convertVectorFields(
-            SeaTunnelRowType rowType, SeaTunnelRow row) {
+    public static SeaTunnelRow convertVectorFields(SeaTunnelRowType rowType, SeaTunnelRow row) {
         SeaTunnelDataType<?>[] fieldTypes = rowType.getFieldTypes();
         Object[] fields = null;
         for (int i = 0; i < fieldTypes.length; i++) {
@@ -116,7 +115,7 @@ public class UnsupportedTypeConverterUtils {
                     mantissa <<= (leadingZeros + 1);
                     floatBits =
                             (sign << 31)
-                                    | ((-14 - leadingZeros + 127) << 23)
+                                    | ((-15 - leadingZeros + 127) << 23)
                                     | ((mantissa & 0x3FF) << 13);
                 }
             } else if (exponent == 31) {
@@ -126,8 +125,7 @@ public class UnsupportedTypeConverterUtils {
                     floatBits = (sign << 31) | 0x7FC00000;
                 }
             } else {
-                floatBits =
-                        (sign << 31) | ((exponent - 15 + 127) << 23) | (mantissa << 13);
+                floatBits = (sign << 31) | ((exponent - 15 + 127) << 23) | (mantissa << 13);
             }
             result[i] = Float.intBitsToFloat(floatBits);
         }
@@ -135,8 +133,8 @@ public class UnsupportedTypeConverterUtils {
     }
 
     /**
-     * Decode a ByteBuffer containing BFLOAT16 (1+8+7) floats to Float array. BFLOAT16 is the top
-     * 16 bits of an IEEE 754 32-bit float. Conversion is a simple left shift by 16.
+     * Decode a ByteBuffer containing BFLOAT16 (1+8+7) floats to Float array. BFLOAT16 is the top 16
+     * bits of an IEEE 754 32-bit float. Conversion is a simple left shift by 16.
      */
     private static Float[] decodeBFloat16Vector(ByteBuffer buffer) {
         int numElements = buffer.remaining() / 2;
@@ -202,10 +200,11 @@ public class UnsupportedTypeConverterUtils {
                                     if (sqlType == SqlType.FLOAT_VECTOR
                                             || sqlType == SqlType.FLOAT16_VECTOR
                                             || sqlType == SqlType.BFLOAT16_VECTOR) {
+                                        Long colLen = column.getColumnLength();
                                         return PhysicalColumn.of(
                                                 column.getName(),
                                                 ArrayType.FLOAT_ARRAY_TYPE,
-                                                column.getColumnLength(),
+                                                colLen != null ? colLen.intValue() : 0,
                                                 column.isNullable(),
                                                 column.getDefaultValue(),
                                                 column.getComment(),
@@ -214,7 +213,7 @@ public class UnsupportedTypeConverterUtils {
                                                 false,
                                                 0L,
                                                 column.getOptions(),
-                                                column.getSourceType());
+                                                colLen);
                                     }
                                     return column;
                                 })
