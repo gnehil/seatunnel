@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
@@ -1292,5 +1293,53 @@ public class DorisTypeConvertorV2Test {
         Column columnInsensitive = DorisTypeConverterV2.INSTANCE.convert(typeDefine, false);
         Assertions.assertEquals("mixed_case_column", columnInsensitive.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, columnInsensitive.getDataType());
+    }
+
+    @Test
+    public void testReconvertFloatVector() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(VectorType.VECTOR_FLOAT_TYPE)
+                        .build();
+
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                AbstractDorisTypeConverter.DORIS_FLOAT_ARRAY, typeDefine.getColumnType());
+        Assertions.assertEquals(
+                AbstractDorisTypeConverter.DORIS_FLOAT_ARRAY, typeDefine.getDataType());
+    }
+
+    @Test
+    public void testReconvertFloat16Vector() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(VectorType.VECTOR_FLOAT16_TYPE)
+                        .build();
+
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                AbstractDorisTypeConverter.DORIS_FLOAT_ARRAY, typeDefine.getColumnType());
+        Assertions.assertEquals(
+                AbstractDorisTypeConverter.DORIS_FLOAT_ARRAY, typeDefine.getDataType());
+    }
+
+    @Test
+    public void testReconvertBFloat16Vector() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(VectorType.VECTOR_BFLOAT16_TYPE)
+                        .build();
+
+        BasicTypeDefine typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                AbstractDorisTypeConverter.DORIS_FLOAT_ARRAY, typeDefine.getColumnType());
+        Assertions.assertEquals(
+                AbstractDorisTypeConverter.DORIS_FLOAT_ARRAY, typeDefine.getDataType());
     }
 }

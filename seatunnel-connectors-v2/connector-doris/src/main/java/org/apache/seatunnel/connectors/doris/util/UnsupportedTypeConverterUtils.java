@@ -21,11 +21,16 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.utils.VectorUtils;
 
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -54,6 +59,28 @@ public class UnsupportedTypeConverterUtils {
         return new SeaTunnelRow(newValues.toArray());
     }
 
+    public static SeaTunnelRow convertVectorFields(
+            SeaTunnelRowType rowType, SeaTunnelRow row) {
+        SeaTunnelDataType<?>[] fieldTypes = rowType.getFieldTypes();
+        Object[] fields = row.getFields();
+        boolean converted = false;
+        for (int i = 0; i < fieldTypes.length; i++) {
+            SqlType sqlType = fieldTypes[i].getSqlType();
+            if (sqlType == SqlType.FLOAT_VECTOR
+                    || sqlType == SqlType.FLOAT16_VECTOR
+                    || sqlType == SqlType.BFLOAT16_VECTOR) {
+                if (fields[i] instanceof ByteBuffer) {
+                    fields[i] = VectorUtils.toFloatArray((ByteBuffer) fields[i]);
+                    converted = true;
+                }
+            }
+        }
+        if (converted) {
+            return new SeaTunnelRow(fields);
+        }
+        return row;
+    }
+
     public static CatalogTable convertCatalogTable(CatalogTable catalogTable) {
         TableSchema tableSchema = catalogTable.getTableSchema();
         List<Column> columns = tableSchema.getColumns();
@@ -79,6 +106,24 @@ public class UnsupportedTypeConverterUtils {
                                                     column.getOptions(),
                                                     22L);
                                         }
+                                    }
+                                    SqlType sqlType = column.getDataType().getSqlType();
+                                    if (sqlType == SqlType.FLOAT_VECTOR
+                                            || sqlType == SqlType.FLOAT16_VECTOR
+                                            || sqlType == SqlType.BFLOAT16_VECTOR) {
+                                        return PhysicalColumn.of(
+                                                column.getName(),
+                                                ArrayType.FLOAT_ARRAY_TYPE,
+                                                column.getColumnLength(),
+                                                column.isNullable(),
+                                                column.getDefaultValue(),
+                                                column.getComment(),
+                                                "ARRAY<FLOAT>",
+                                                false,
+                                                false,
+                                                0L,
+                                                column.getOptions(),
+                                                column.getSourceType());
                                     }
                                     return column;
                                 })

@@ -113,7 +113,7 @@ public class DorisSinkWriter
             String jobId,
             DorisStreamLoadFactory streamLoadFactory) {
         this.dorisSinkConfig = dorisSinkConfig;
-        this.catalogTable = catalogTable;
+        this.catalogTable = UnsupportedTypeConverterUtils.convertCatalogTable(catalogTable);
         this.lastCheckpointId = !state.isEmpty() ? state.get(0).getCheckpointId() : 0;
         log.info("restore checkpointId {}", lastCheckpointId);
         log.info("labelPrefix " + dorisSinkConfig.getLabelPrefix());
@@ -187,6 +187,9 @@ public class DorisSinkWriter
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         checkLoadException();
+        element =
+                UnsupportedTypeConverterUtils.convertVectorFields(
+                        catalogTable.getSeaTunnelRowType(), element);
         byte[] serialize =
                 serializer.serialize(
                         dorisSinkConfig.isNeedsUnsupportedTypeCasting()

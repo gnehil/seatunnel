@@ -363,6 +363,12 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
 
                 reconvertBuildArrayInternal(elementType, builder, column.getName());
                 break;
+            case FLOAT_VECTOR:
+            case FLOAT16_VECTOR:
+            case BFLOAT16_VECTOR:
+                builder.columnType(DORIS_FLOAT_ARRAY);
+                builder.dataType(DORIS_FLOAT_ARRAY);
+                break;
             case ROW:
                 builder.columnType(DORIS_JSON);
                 builder.dataType(DORIS_JSON);
