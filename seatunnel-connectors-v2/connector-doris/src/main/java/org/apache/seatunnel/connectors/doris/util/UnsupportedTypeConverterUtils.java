@@ -27,7 +27,10 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.utils.VectorUtils;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -37,6 +40,7 @@ import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.table.type.BasicType.DOUBLE_TYPE;
 
+@Slf4j
 public class UnsupportedTypeConverterUtils {
     public static Object convertBigDecimal(BigDecimal bigDecimal) {
         if (bigDecimal.precision() > 38) {
@@ -62,23 +66,97 @@ public class UnsupportedTypeConverterUtils {
     public static SeaTunnelRow convertVectorFields(
             SeaTunnelRowType rowType, SeaTunnelRow row) {
         SeaTunnelDataType<?>[] fieldTypes = rowType.getFieldTypes();
-        Object[] fields = row.getFields();
-        boolean converted = false;
+        Object[] fields = null;
+        for (int i = 0; i < fieldTypes.length; i++) {
+            SqlType sqlType = fieldTypes[i].getSqlType();
+            if (row.getField(i) instanceof ByteBuffer
+                    && (sqlType == SqlType.FLOAT_VECTOR
+                            || sqlType == SqlType.FLOAT16_VECTOR
+                            || sqlType == SqlType.BFLOAT16_VECTOR)) {
+                if (fields == null) {
+                    fields = row.getFields().clone();
+                }
+                ByteBuffer buffer = (ByteBuffer) row.getField(i);
+                if (sqlType == SqlType.FLOAT_VECTOR) {
+                    fields[i] = VectorUtils.toFloatArray(buffer);
+                } else {
+                    fields[i] = decodeHalfPrecisionVector(buffer);
+                }
+                log.debug(
+                        "Converted vector field '{}' from {} to float array",
+                        rowType.getFieldName(i),
+                        sqlType);
+            }
+        }
+        if (fields != null) {
+            return new SeaTunnelRow(fields);
+        }
+        return row;
+    }
+
+    /**
+     * Decode a ByteBuffer containing half-precision (2-byte) floats to a Float array of
+     * single-precision (4-byte) floats. Used for FLOAT16_VECTOR and BFLOAT16_VECTOR.
+     */
+    private static Float[] decodeHalfPrecisionVector(ByteBuffer buffer) {
+        int numElements = buffer.remaining() / 2;
+        Float[] result = new Float[numElements];
+        for (int i = 0; i < numElements; i++) {
+            int bits = buffer.getShort() & 0xFFFF;
+            int sign = (bits >> 15) & 0x1;
+            int exponent = (bits >> 10) & 0x1F;
+            int mantissa = bits & 0x3FF;
+            float value;
+            if (exponent == 0) {
+                if (mantissa == 0) {
+                    value = sign == 0 ? 0.0f : -0.0f;
+                } else {
+                    value =
+                            (float)
+                                    ((sign == 0 ? 1.0 : -1.0)
+                                            * Math.pow(2, -14)
+                                            * (mantissa / 1024.0));
+                }
+            } else if (exponent == 31) {
+                if (mantissa == 0) {
+                    value = sign == 0 ? Float.POSITIVE_INFINITY : Float.NEGATIVE_INFINITY;
+                } else {
+                    value = Float.NaN;
+                }
+            } else {
+                value =
+                        (float)
+                                ((sign == 0 ? 1.0 : -1.0)
+                                        * Math.pow(2, exponent - 15)
+                                        * (1.0 + mantissa / 1024.0));
+            }
+            result[i] = value;
+        }
+        return result;
+    }
+
+    /**
+     * Convert vector types in a SeaTunnelRowType to ARRAY<FLOAT>. Used for schema evolution where
+     * the row type needs to be converted before creating a serializer.
+     */
+    public static SeaTunnelRowType convertRowType(SeaTunnelRowType rowType) {
+        SeaTunnelDataType<?>[] fieldTypes = rowType.getFieldTypes();
+        SeaTunnelDataType<?>[] newTypes = null;
         for (int i = 0; i < fieldTypes.length; i++) {
             SqlType sqlType = fieldTypes[i].getSqlType();
             if (sqlType == SqlType.FLOAT_VECTOR
                     || sqlType == SqlType.FLOAT16_VECTOR
                     || sqlType == SqlType.BFLOAT16_VECTOR) {
-                if (fields[i] instanceof ByteBuffer) {
-                    fields[i] = VectorUtils.toFloatArray((ByteBuffer) fields[i]);
-                    converted = true;
+                if (newTypes == null) {
+                    newTypes = fieldTypes.clone();
                 }
+                newTypes[i] = ArrayType.FLOAT_ARRAY_TYPE;
             }
         }
-        if (converted) {
-            return new SeaTunnelRow(fields);
+        if (newTypes != null) {
+            return new SeaTunnelRowType(rowType.getFieldNames(), newTypes);
         }
-        return row;
+        return rowType;
     }
 
     public static CatalogTable convertCatalogTable(CatalogTable catalogTable) {

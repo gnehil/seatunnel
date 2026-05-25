@@ -83,6 +83,7 @@ public class DorisSinkWriter
     private SchemaChangeManager schemaChangeManager;
     private final DorisStreamLoadFactory streamLoadFactory;
     private String controlHostPort;
+    private final SeaTunnelRowType sourceRowType;
 
     public DorisSinkWriter(
             SinkWriter.Context context,
@@ -113,6 +114,7 @@ public class DorisSinkWriter
             String jobId,
             DorisStreamLoadFactory streamLoadFactory) {
         this.dorisSinkConfig = dorisSinkConfig;
+        this.sourceRowType = catalogTable.getSeaTunnelRowType();
         this.catalogTable = UnsupportedTypeConverterUtils.convertCatalogTable(catalogTable);
         this.lastCheckpointId = !state.isEmpty() ? state.get(0).getCheckpointId() : 0;
         log.info("restore checkpointId {}", lastCheckpointId);
@@ -187,9 +189,7 @@ public class DorisSinkWriter
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         checkLoadException();
-        element =
-                UnsupportedTypeConverterUtils.convertVectorFields(
-                        catalogTable.getSeaTunnelRowType(), element);
+        element = UnsupportedTypeConverterUtils.convertVectorFields(sourceRowType, element);
         byte[] serialize =
                 serializer.serialize(
                         dorisSinkConfig.isNeedsUnsupportedTypeCasting()
@@ -210,7 +210,10 @@ public class DorisSinkWriter
     public void applySchemaChange(SchemaChangeEvent event) {
         this.tableSchema = tableSchemaChanger.reset(tableSchema).apply(event);
         SeaTunnelRowType seaTunnelRowType = tableSchema.toPhysicalRowDataType();
-        this.serializer = createSerializer(this.dorisSinkConfig, seaTunnelRowType);
+        this.serializer =
+                createSerializer(
+                        this.dorisSinkConfig,
+                        UnsupportedTypeConverterUtils.convertRowType(seaTunnelRowType));
 
         try {
             schemaChangeManager.applySchemaChange(sinkTablePath, event);

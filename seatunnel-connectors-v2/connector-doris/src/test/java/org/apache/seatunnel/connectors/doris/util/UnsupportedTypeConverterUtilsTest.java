@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.VectorType;
@@ -45,7 +46,7 @@ public class UnsupportedTypeConverterUtilsTest {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"id", "embedding"},
-                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType<?>[] {
+                        new SeaTunnelDataType<?>[] {
                             BasicType.INT_TYPE, VectorType.VECTOR_FLOAT_TYPE
                         });
 
@@ -63,7 +64,7 @@ public class UnsupportedTypeConverterUtilsTest {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"id", "embedding"},
-                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType<?>[] {
+                        new SeaTunnelDataType<?>[] {
                             BasicType.INT_TYPE, VectorType.VECTOR_FLOAT16_TYPE
                         });
 
@@ -80,7 +81,7 @@ public class UnsupportedTypeConverterUtilsTest {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"id", "embedding"},
-                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType<?>[] {
+                        new SeaTunnelDataType<?>[] {
                             BasicType.INT_TYPE, VectorType.VECTOR_BFLOAT16_TYPE
                         });
 
@@ -97,7 +98,7 @@ public class UnsupportedTypeConverterUtilsTest {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"id", "name"},
-                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType<?>[] {
+                        new SeaTunnelDataType<?>[] {
                             BasicType.INT_TYPE, BasicType.STRING_TYPE
                         });
 
@@ -114,7 +115,7 @@ public class UnsupportedTypeConverterUtilsTest {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"id", "sparse"},
-                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType<?>[] {
+                        new SeaTunnelDataType<?>[] {
                             BasicType.INT_TYPE, VectorType.VECTOR_SPARSE_FLOAT_TYPE
                         });
 
