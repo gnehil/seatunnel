@@ -68,12 +68,18 @@ public class UnsupportedTypeConverterUtilsTest {
                             BasicType.INT_TYPE, VectorType.VECTOR_FLOAT16_TYPE
                         });
 
-        Float[] floatArray = {1.0f, 2.0f};
-        ByteBuffer buffer = VectorUtils.toByteBuffer(floatArray);
-        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, buffer});
+        // 1.0f -> half-precision 0x3C00, 2.0f -> 0x4000
+        ByteBuffer buffer = ByteBuffer.allocate(4);
+        buffer.putShort((short) 0x3C00);
+        buffer.putShort((short) 0x4000);
+        buffer.flip();
 
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, buffer});
         SeaTunnelRow converted = UnsupportedTypeConverterUtils.convertVectorFields(rowType, row);
-        Assertions.assertArrayEquals(floatArray, (Float[]) converted.getField(1));
+        Float[] result = (Float[]) converted.getField(1);
+        Assertions.assertEquals(2, result.length);
+        Assertions.assertEquals(1.0f, result[0], 0.001f);
+        Assertions.assertEquals(2.0f, result[1], 0.001f);
     }
 
     @Test
@@ -85,12 +91,18 @@ public class UnsupportedTypeConverterUtilsTest {
                             BasicType.INT_TYPE, VectorType.VECTOR_BFLOAT16_TYPE
                         });
 
-        Float[] floatArray = {3.0f, 4.0f};
-        ByteBuffer buffer = VectorUtils.toByteBuffer(floatArray);
-        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, buffer});
+        // 3.0f -> half-precision 0x4200, 4.0f -> 0x4400
+        ByteBuffer buffer = ByteBuffer.allocate(4);
+        buffer.putShort((short) 0x4200);
+        buffer.putShort((short) 0x4400);
+        buffer.flip();
 
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, buffer});
         SeaTunnelRow converted = UnsupportedTypeConverterUtils.convertVectorFields(rowType, row);
-        Assertions.assertArrayEquals(floatArray, (Float[]) converted.getField(1));
+        Float[] result = (Float[]) converted.getField(1);
+        Assertions.assertEquals(2, result.length);
+        Assertions.assertEquals(3.0f, result[0], 0.001f);
+        Assertions.assertEquals(4.0f, result[1], 0.001f);
     }
 
     @Test
@@ -194,5 +206,84 @@ public class UnsupportedTypeConverterUtilsTest {
 
         Assertions.assertEquals(BasicType.INT_TYPE, convertedColumns.get(0).getDataType());
         Assertions.assertEquals(BasicType.STRING_TYPE, convertedColumns.get(1).getDataType());
+    }
+
+    @Test
+    public void testConvertRowTypeWithVectorColumns() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "embedding", "embedding16", "name"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.INT_TYPE,
+                            VectorType.VECTOR_FLOAT_TYPE,
+                            VectorType.VECTOR_FLOAT16_TYPE,
+                            BasicType.STRING_TYPE
+                        });
+
+        SeaTunnelRowType converted = UnsupportedTypeConverterUtils.convertRowType(rowType);
+        Assertions.assertEquals(BasicType.INT_TYPE, converted.getFieldTypes()[0]);
+        Assertions.assertEquals(ArrayType.FLOAT_ARRAY_TYPE, converted.getFieldTypes()[1]);
+        Assertions.assertEquals(ArrayType.FLOAT_ARRAY_TYPE, converted.getFieldTypes()[2]);
+        Assertions.assertEquals(BasicType.STRING_TYPE, converted.getFieldTypes()[3]);
+        Assertions.assertArrayEquals(
+                new String[] {"id", "embedding", "embedding16", "name"}, converted.getFieldNames());
+    }
+
+    @Test
+    public void testConvertRowTypeWithoutVectorColumns() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.INT_TYPE, BasicType.STRING_TYPE
+                        });
+
+        SeaTunnelRowType converted = UnsupportedTypeConverterUtils.convertRowType(rowType);
+        Assertions.assertSame(rowType, converted);
+    }
+
+    @Test
+    public void testDecodeHalfPrecisionSpecialValues() {
+        // Test zero: +0.0 = 0x0000, -0.0 = 0x8000
+        ByteBuffer buffer = ByteBuffer.allocate(4);
+        buffer.putShort((short) 0x0000);
+        buffer.putShort((short) 0x8000);
+        buffer.flip();
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"v"},
+                        new SeaTunnelDataType<?>[] {VectorType.VECTOR_FLOAT16_TYPE});
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {buffer});
+        Float[] result =
+                (Float[])
+                        UnsupportedTypeConverterUtils.convertVectorFields(rowType, row)
+                                .getField(0);
+        Assertions.assertEquals(0.0f, result[0], 0.0f);
+        Assertions.assertEquals(-0.0f, result[1], 0.0f);
+
+        // Test infinity: +inf = 0x7C00, -inf = 0xFC00
+        buffer = ByteBuffer.allocate(4);
+        buffer.putShort((short) 0x7C00);
+        buffer.putShort((short) 0xFC00);
+        buffer.flip();
+        row = new SeaTunnelRow(new Object[] {buffer});
+        result =
+                (Float[])
+                        UnsupportedTypeConverterUtils.convertVectorFields(rowType, row)
+                                .getField(0);
+        Assertions.assertEquals(Float.POSITIVE_INFINITY, result[0]);
+        Assertions.assertEquals(Float.NEGATIVE_INFINITY, result[1]);
+
+        // Test NaN: 0x7E00
+        buffer = ByteBuffer.allocate(2);
+        buffer.putShort((short) 0x7E00);
+        buffer.flip();
+        row = new SeaTunnelRow(new Object[] {buffer});
+        result =
+                (Float[])
+                        UnsupportedTypeConverterUtils.convertVectorFields(rowType, row)
+                                .getField(0);
+        Assertions.assertTrue(Float.isNaN(result[0]));
     }
 }

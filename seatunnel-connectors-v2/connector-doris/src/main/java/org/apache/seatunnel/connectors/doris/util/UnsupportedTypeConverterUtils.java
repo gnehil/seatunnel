@@ -27,7 +27,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.common.utils.VectorUtils;
 
 import lombok.extern.slf4j.Slf4j;
@@ -102,35 +101,35 @@ public class UnsupportedTypeConverterUtils {
         int numElements = buffer.remaining() / 2;
         Float[] result = new Float[numElements];
         for (int i = 0; i < numElements; i++) {
-            int bits = buffer.getShort() & 0xFFFF;
-            int sign = (bits >> 15) & 0x1;
-            int exponent = (bits >> 10) & 0x1F;
-            int mantissa = bits & 0x3FF;
-            float value;
+            int halfBits = buffer.getShort() & 0xFFFF;
+            int sign = (halfBits >> 15) & 0x1;
+            int exponent = (halfBits >> 10) & 0x1F;
+            int mantissa = halfBits & 0x3FF;
+            int floatBits;
             if (exponent == 0) {
                 if (mantissa == 0) {
-                    value = sign == 0 ? 0.0f : -0.0f;
+                    floatBits = sign << 31;
                 } else {
-                    value =
-                            (float)
-                                    ((sign == 0 ? 1.0 : -1.0)
-                                            * Math.pow(2, -14)
-                                            * (mantissa / 1024.0));
+                    int e = -1;
+                    int m = mantissa;
+                    while ((m & 0x400) == 0) {
+                        m <<= 1;
+                        e--;
+                    }
+                    m &= 0x3FF;
+                    floatBits = (sign << 31) | ((e + 127) << 23) | (m << 13);
                 }
             } else if (exponent == 31) {
                 if (mantissa == 0) {
-                    value = sign == 0 ? Float.POSITIVE_INFINITY : Float.NEGATIVE_INFINITY;
+                    floatBits = (sign << 31) | 0x7F800000;
                 } else {
-                    value = Float.NaN;
+                    floatBits = (sign << 31) | 0x7FC00000;
                 }
             } else {
-                value =
-                        (float)
-                                ((sign == 0 ? 1.0 : -1.0)
-                                        * Math.pow(2, exponent - 15)
-                                        * (1.0 + mantissa / 1024.0));
+                floatBits =
+                        (sign << 31) | ((exponent - 15 + 127) << 23) | (mantissa << 13);
             }
-            result[i] = value;
+            result[i] = Float.intBitsToFloat(floatBits);
         }
         return result;
     }
