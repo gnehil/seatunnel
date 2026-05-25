@@ -318,7 +318,36 @@ public class UnsupportedTypeConverterUtilsTest {
                         UnsupportedTypeConverterUtils.convertVectorFields(rowType, row)
                                 .getField(0);
         Assertions.assertEquals(2, result.length);
-        Assertions.assertEquals(1.0f, result[0], 0.01f);
-        Assertions.assertEquals(2.0f, result[1], 0.01f);
+        Assertions.assertEquals(1.0f, result[0]);
+        Assertions.assertEquals(2.0f, result[1]);
+
+        // BFLOAT16 special values: +0.0 = 0x0000, -0.0 = 0x8000
+        buffer = ByteBuffer.allocate(4);
+        buffer.putShort((short) 0x0000);
+        buffer.putShort((short) 0x8000);
+        buffer.flip();
+        row = new SeaTunnelRow(new Object[] {buffer});
+        result =
+                (Float[])
+                        UnsupportedTypeConverterUtils.convertVectorFields(rowType, row)
+                                .getField(0);
+        Assertions.assertEquals(0.0f, result[0]);
+        Assertions.assertEquals(
+                Float.floatToRawIntBits(-0.0f), Float.floatToRawIntBits(result[1]));
+
+        // BFLOAT16 +inf = 0x7F80, -inf = 0xFF80, NaN = 0x7FC0
+        buffer = ByteBuffer.allocate(6);
+        buffer.putShort((short) 0x7F80);
+        buffer.putShort((short) 0xFF80);
+        buffer.putShort((short) 0x7FC0);
+        buffer.flip();
+        row = new SeaTunnelRow(new Object[] {buffer});
+        result =
+                (Float[])
+                        UnsupportedTypeConverterUtils.convertVectorFields(rowType, row)
+                                .getField(0);
+        Assertions.assertEquals(Float.POSITIVE_INFINITY, result[0]);
+        Assertions.assertEquals(Float.NEGATIVE_INFINITY, result[1]);
+        Assertions.assertTrue(Float.isNaN(result[2]));
     }
 }
