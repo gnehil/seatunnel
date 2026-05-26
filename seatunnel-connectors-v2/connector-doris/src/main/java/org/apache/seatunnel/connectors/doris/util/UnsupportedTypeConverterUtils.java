@@ -86,7 +86,7 @@ public class UnsupportedTypeConverterUtils {
                 if (fields == null) {
                     fields = row.getFields().clone();
                 }
-                ByteBuffer buffer = (ByteBuffer) row.getField(i);
+                ByteBuffer buffer = ((ByteBuffer) row.getField(i)).duplicate();
                 if (sqlType == SqlType.FLOAT_VECTOR) {
                     fields[i] = VectorUtils.toFloatArray(buffer);
                 } else if (sqlType == SqlType.FLOAT16_VECTOR) {
@@ -167,6 +167,15 @@ public class UnsupportedTypeConverterUtils {
      * the row type needs to be converted before creating a serializer.
      */
     public static SeaTunnelRowType convertRowType(SeaTunnelRowType rowType) {
+        return convertRowType(rowType, null);
+    }
+
+    /**
+     * Convert unsupported types in a SeaTunnelRowType for serializer schema. Handles vector types
+     * (→ ARRAY<FLOAT>) and high-precision DECIMAL (→ DOUBLE). Column metadata is needed for DECIMAL
+     * precision check; pass null to skip DECIMAL conversion.
+     */
+    public static SeaTunnelRowType convertRowType(SeaTunnelRowType rowType, List<Column> columns) {
         SeaTunnelDataType<?>[] fieldTypes = rowType.getFieldTypes();
         SeaTunnelDataType<?>[] newTypes = null;
         for (int i = 0; i < fieldTypes.length; i++) {
@@ -178,6 +187,14 @@ public class UnsupportedTypeConverterUtils {
                     newTypes = fieldTypes.clone();
                 }
                 newTypes[i] = ArrayType.FLOAT_ARRAY_TYPE;
+            } else if (sqlType == SqlType.DECIMAL && columns != null && i < columns.size()) {
+                DecimalType dt = (DecimalType) fieldTypes[i];
+                if (dt.getPrecision() > 38) {
+                    if (newTypes == null) {
+                        newTypes = fieldTypes.clone();
+                    }
+                    newTypes[i] = DOUBLE_TYPE;
+                }
             }
         }
         if (newTypes != null) {
