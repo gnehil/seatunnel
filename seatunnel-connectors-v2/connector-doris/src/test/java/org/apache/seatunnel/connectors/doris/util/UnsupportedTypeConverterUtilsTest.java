@@ -34,6 +34,7 @@ import org.apache.seatunnel.common.utils.VectorUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collections;
@@ -168,6 +169,58 @@ public class UnsupportedTypeConverterUtilsTest {
         SeaTunnelRow converted = UnsupportedTypeConverterUtils.convertVectorFields(rowType, row);
 
         Assertions.assertSame(row, converted);
+    }
+
+    @Test
+    public void testConvertRowPreservesRowKind() {
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "test"});
+        row.setRowKind(RowKind.DELETE);
+        row.setTableId("test_table");
+
+        SeaTunnelRow converted = UnsupportedTypeConverterUtils.convertRow(row);
+        Assertions.assertSame(row, converted);
+        Assertions.assertEquals(RowKind.DELETE, converted.getRowKind());
+        Assertions.assertEquals("test_table", converted.getTableId());
+    }
+
+    @Test
+    public void testConvertRowPreservesRowKindWithHighPrecisionDecimal() {
+        BigDecimal highPrecision = new BigDecimal("12345678901234567890123456789012345678.12");
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, highPrecision});
+        row.setRowKind(RowKind.DELETE);
+        row.setTableId("test_table");
+
+        SeaTunnelRow converted = UnsupportedTypeConverterUtils.convertRow(row);
+        Assertions.assertNotSame(row, converted);
+        Assertions.assertEquals(RowKind.DELETE, converted.getRowKind());
+        Assertions.assertEquals("test_table", converted.getTableId());
+        Assertions.assertEquals(highPrecision.doubleValue(), converted.getField(1));
+    }
+
+    @Test
+    public void testConvertVectorThenConvertRowPreservesRowKind() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "embedding"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.INT_TYPE, VectorType.VECTOR_FLOAT_TYPE
+                        });
+
+        Float[] floatArray = {1.0f, 2.0f};
+        ByteBuffer buffer = VectorUtils.toByteBuffer(floatArray);
+        BigDecimal highPrecision = new BigDecimal("12345678901234567890123456789012345678.12");
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {highPrecision, buffer});
+        row.setRowKind(RowKind.DELETE);
+        row.setTableId("test_table");
+
+        // Simulate write() path: convertVectorFields -> convertRow
+        SeaTunnelRow afterVector = UnsupportedTypeConverterUtils.convertVectorFields(rowType, row);
+        SeaTunnelRow afterConvert = UnsupportedTypeConverterUtils.convertRow(afterVector);
+
+        Assertions.assertEquals(RowKind.DELETE, afterConvert.getRowKind());
+        Assertions.assertEquals("test_table", afterConvert.getTableId());
+        Assertions.assertArrayEquals(floatArray, (Float[]) afterConvert.getField(1));
+        Assertions.assertEquals(highPrecision.doubleValue(), afterConvert.getField(0));
     }
 
     @Test
