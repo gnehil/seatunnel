@@ -27,7 +27,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
-import org.apache.seatunnel.common.utils.VectorUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -88,7 +87,7 @@ public class UnsupportedTypeConverterUtils {
                 }
                 ByteBuffer buffer = ((ByteBuffer) row.getField(i)).duplicate();
                 if (sqlType == SqlType.FLOAT_VECTOR) {
-                    fields[i] = VectorUtils.toFloatArray(buffer);
+                    fields[i] = decodeFloatVector(buffer);
                 } else if (sqlType == SqlType.FLOAT16_VECTOR) {
                     fields[i] = decodeFloat16Vector(buffer);
                 } else {
@@ -163,19 +162,23 @@ public class UnsupportedTypeConverterUtils {
     }
 
     /**
+     * Decode a ByteBuffer containing IEEE 754 32-bit floats to Float array. Uses remaining() to
+     * safely handle sliced/duplicated buffers.
+     */
+    private static Float[] decodeFloatVector(ByteBuffer buffer) {
+        int numElements = buffer.remaining() / 4;
+        Float[] result = new Float[numElements];
+        for (int i = 0; i < numElements; i++) {
+            result[i] = buffer.getFloat();
+        }
+        return result;
+    }
+
+    /**
      * Convert vector types in a SeaTunnelRowType to ARRAY<FLOAT>. Used for schema evolution where
      * the row type needs to be converted before creating a serializer.
      */
     public static SeaTunnelRowType convertRowType(SeaTunnelRowType rowType) {
-        return convertRowType(rowType, null);
-    }
-
-    /**
-     * Convert unsupported types in a SeaTunnelRowType for serializer schema. Handles vector types
-     * (→ ARRAY<FLOAT>) and high-precision DECIMAL (→ DOUBLE). Column metadata is needed for DECIMAL
-     * precision check; pass null to skip DECIMAL conversion.
-     */
-    public static SeaTunnelRowType convertRowType(SeaTunnelRowType rowType, List<Column> columns) {
         SeaTunnelDataType<?>[] fieldTypes = rowType.getFieldTypes();
         SeaTunnelDataType<?>[] newTypes = null;
         for (int i = 0; i < fieldTypes.length; i++) {
@@ -187,14 +190,6 @@ public class UnsupportedTypeConverterUtils {
                     newTypes = fieldTypes.clone();
                 }
                 newTypes[i] = ArrayType.FLOAT_ARRAY_TYPE;
-            } else if (sqlType == SqlType.DECIMAL && columns != null && i < columns.size()) {
-                DecimalType dt = (DecimalType) fieldTypes[i];
-                if (dt.getPrecision() > 38) {
-                    if (newTypes == null) {
-                        newTypes = fieldTypes.clone();
-                    }
-                    newTypes[i] = DOUBLE_TYPE;
-                }
             }
         }
         if (newTypes != null) {
@@ -204,6 +199,52 @@ public class UnsupportedTypeConverterUtils {
     }
 
     public static CatalogTable convertCatalogTable(CatalogTable catalogTable) {
+        TableSchema tableSchema = catalogTable.getTableSchema();
+        List<Column> columns = tableSchema.getColumns();
+        List<Column> newColumns =
+                columns.stream()
+                        .map(
+                                column -> {
+                                    SqlType sqlType = column.getDataType().getSqlType();
+                                    if (sqlType == SqlType.FLOAT_VECTOR
+                                            || sqlType == SqlType.FLOAT16_VECTOR
+                                            || sqlType == SqlType.BFLOAT16_VECTOR) {
+                                        Long colLen = column.getColumnLength();
+                                        return PhysicalColumn.of(
+                                                column.getName(),
+                                                ArrayType.FLOAT_ARRAY_TYPE,
+                                                colLen != null ? colLen.intValue() : 0,
+                                                column.isNullable(),
+                                                column.getDefaultValue(),
+                                                column.getComment(),
+                                                "ARRAY<FLOAT>",
+                                                false,
+                                                false,
+                                                0L,
+                                                column.getOptions(),
+                                                colLen);
+                                    }
+                                    return column;
+                                })
+                        .collect(Collectors.toList());
+        TableSchema newtableSchema =
+                TableSchema.builder()
+                        .columns(newColumns)
+                        .primaryKey(tableSchema.getPrimaryKey())
+                        .constraintKey(tableSchema.getConstraintKeys())
+                        .build();
+
+        return CatalogTable.of(
+                catalogTable.getTableId(),
+                newtableSchema,
+                catalogTable.getOptions(),
+                catalogTable.getPartitionKeys(),
+                catalogTable.getComment(),
+                catalogTable.getCatalogName());
+    }
+
+    /** Convert high-precision DECIMAL (precision > 38) columns to DOUBLE in a CatalogTable. */
+    public static CatalogTable convertDecimalColumns(CatalogTable catalogTable) {
         TableSchema tableSchema = catalogTable.getTableSchema();
         List<Column> columns = tableSchema.getColumns();
         List<Column> newColumns =
@@ -228,25 +269,6 @@ public class UnsupportedTypeConverterUtils {
                                                     column.getOptions(),
                                                     22L);
                                         }
-                                    }
-                                    SqlType sqlType = column.getDataType().getSqlType();
-                                    if (sqlType == SqlType.FLOAT_VECTOR
-                                            || sqlType == SqlType.FLOAT16_VECTOR
-                                            || sqlType == SqlType.BFLOAT16_VECTOR) {
-                                        Long colLen = column.getColumnLength();
-                                        return PhysicalColumn.of(
-                                                column.getName(),
-                                                ArrayType.FLOAT_ARRAY_TYPE,
-                                                colLen != null ? colLen.intValue() : 0,
-                                                column.isNullable(),
-                                                column.getDefaultValue(),
-                                                column.getComment(),
-                                                "ARRAY<FLOAT>",
-                                                false,
-                                                false,
-                                                0L,
-                                                column.getOptions(),
-                                                colLen);
                                     }
                                     return column;
                                 })

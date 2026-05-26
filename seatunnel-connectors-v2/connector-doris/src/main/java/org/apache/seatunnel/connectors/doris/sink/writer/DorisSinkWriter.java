@@ -215,8 +215,7 @@ public class DorisSinkWriter
         this.serializer =
                 createSerializer(
                         this.dorisSinkConfig,
-                        UnsupportedTypeConverterUtils.convertRowType(
-                                seaTunnelRowType, tableSchema.getColumns()));
+                        UnsupportedTypeConverterUtils.convertRowType(seaTunnelRowType));
 
         try {
             schemaChangeManager.applySchemaChange(sinkTablePath, event);

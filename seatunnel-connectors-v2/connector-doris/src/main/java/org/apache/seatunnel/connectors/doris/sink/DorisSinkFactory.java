@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.doris.config.DorisSinkConfig;
 import org.apache.seatunnel.connectors.doris.config.DorisSinkOptions;
 import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfo;
 import org.apache.seatunnel.connectors.doris.sink.writer.DorisSinkState;
+import org.apache.seatunnel.connectors.doris.util.UnsupportedTypeConverterUtils;
 
 import com.google.auto.service.AutoService;
 
@@ -42,6 +43,7 @@ import java.util.List;
 
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.DATABASE;
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.TABLE;
+import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.NEEDS_UNSUPPORTED_TYPE_CASTING;
 
 @AutoService(Factory.class)
 public class DorisSinkFactory implements TableSinkFactory {
@@ -99,6 +101,9 @@ public class DorisSinkFactory implements TableSinkFactory {
         ReadonlyConfig config = context.getOptions();
         DorisSinkConfig.validate(config);
         CatalogTable catalogTable = context.getCatalogTable();
+        if (config.get(NEEDS_UNSUPPORTED_TYPE_CASTING)) {
+            catalogTable = UnsupportedTypeConverterUtils.convertDecimalColumns(catalogTable);
+        }
         final CatalogTable finalCatalogTable = this.renameCatalogTable(config, catalogTable);
         return () -> new DorisSink(config, finalCatalogTable);
     }
