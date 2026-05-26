@@ -33,7 +33,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -49,17 +48,30 @@ public class UnsupportedTypeConverterUtils {
     }
 
     public static SeaTunnelRow convertRow(SeaTunnelRow row) {
-        List<Object> newValues =
-                Arrays.stream(row.getFields())
-                        .map(
-                                value -> {
-                                    if (value instanceof BigDecimal) {
-                                        return convertBigDecimal((BigDecimal) value);
-                                    }
-                                    return value;
-                                })
-                        .collect(Collectors.toList());
-        return new SeaTunnelRow(newValues.toArray());
+        boolean changed = false;
+        Object[] fields = row.getFields();
+        Object[] newValues = new Object[fields.length];
+        for (int i = 0; i < fields.length; i++) {
+            if (fields[i] instanceof BigDecimal) {
+                BigDecimal bd = (BigDecimal) fields[i];
+                if (bd.precision() > 38) {
+                    newValues[i] = bd.doubleValue();
+                    changed = true;
+                } else {
+                    newValues[i] = bd;
+                }
+            } else {
+                newValues[i] = fields[i];
+            }
+        }
+        if (changed) {
+            SeaTunnelRow newRow = new SeaTunnelRow(newValues);
+            newRow.setRowKind(row.getRowKind());
+            newRow.setTableId(row.getTableId());
+            newRow.setOptions(row.getOptions());
+            return newRow;
+        }
+        return row;
     }
 
     public static SeaTunnelRow convertVectorFields(SeaTunnelRowType rowType, SeaTunnelRow row) {
@@ -92,6 +104,7 @@ public class UnsupportedTypeConverterUtils {
             SeaTunnelRow newRow = new SeaTunnelRow(fields);
             newRow.setRowKind(row.getRowKind());
             newRow.setTableId(row.getTableId());
+            newRow.setOptions(row.getOptions());
             return newRow;
         }
         return row;
