@@ -104,6 +104,18 @@ public class UnsupportedTypeConverterUtilsTest {
         Assertions.assertEquals(2, result.length);
         Assertions.assertEquals(3.0f, result[0], 0.001f);
         Assertions.assertEquals(4.0f, result[1], 0.001f);
+
+        // BFLOAT16 precision loss: 1.1f = 0x3F8CCCCD -> BFLOAT16 0x3F8C -> 0x3F8C0000 = 1.09375f
+        // 7 mantissa bits lose ~16 bits of precision compared to float32
+        buffer = ByteBuffer.allocate(2);
+        buffer.putShort((short) 0x3F8C);
+        buffer.flip();
+        row = new SeaTunnelRow(new Object[] {1, buffer});
+        converted = UnsupportedTypeConverterUtils.convertVectorFields(rowType, row);
+        result = (Float[]) converted.getField(1);
+        Assertions.assertEquals(1, result.length);
+        Assertions.assertEquals(1.09375f, result[0]);
+        Assertions.assertNotEquals(1.1f, result[0], "BFLOAT16 should lose precision for 1.1f");
     }
 
     @Test
