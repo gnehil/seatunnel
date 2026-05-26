@@ -89,7 +89,10 @@ public class UnsupportedTypeConverterUtils {
             }
         }
         if (fields != null) {
-            return new SeaTunnelRow(fields);
+            SeaTunnelRow newRow = new SeaTunnelRow(fields);
+            newRow.setRowKind(row.getRowKind());
+            newRow.setTableId(row.getTableId());
+            return newRow;
         }
         return row;
     }

@@ -83,7 +83,7 @@ public class DorisSinkWriter
     private SchemaChangeManager schemaChangeManager;
     private final DorisStreamLoadFactory streamLoadFactory;
     private String controlHostPort;
-    private final SeaTunnelRowType sourceRowType;
+    private SeaTunnelRowType sourceRowType;
 
     public DorisSinkWriter(
             SinkWriter.Context context,
@@ -131,7 +131,8 @@ public class DorisSinkWriter
         this.scheduledExecutorService =
                 new ScheduledThreadPoolExecutor(
                         1, new ThreadFactoryBuilder().setNameFormat("stream-load-check").build());
-        this.serializer = createSerializer(dorisSinkConfig, catalogTable.getSeaTunnelRowType());
+        this.serializer =
+                createSerializer(dorisSinkConfig, this.catalogTable.getSeaTunnelRowType());
         this.intervalTime = dorisSinkConfig.getCheckInterval();
         this.tableSchema = catalogTable.getTableSchema();
         this.sinkTablePath = catalogTable.getTablePath();
@@ -210,6 +211,7 @@ public class DorisSinkWriter
     public void applySchemaChange(SchemaChangeEvent event) {
         this.tableSchema = tableSchemaChanger.reset(tableSchema).apply(event);
         SeaTunnelRowType seaTunnelRowType = tableSchema.toPhysicalRowDataType();
+        this.sourceRowType = seaTunnelRowType;
         this.serializer =
                 createSerializer(
                         this.dorisSinkConfig,

@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -57,6 +58,27 @@ public class UnsupportedTypeConverterUtilsTest {
         SeaTunnelRow converted = UnsupportedTypeConverterUtils.convertVectorFields(rowType, row);
         Assertions.assertArrayEquals(floatArray, (Float[]) converted.getField(1));
         Assertions.assertEquals(1, converted.getField(0));
+    }
+
+    @Test
+    public void testConvertVectorFieldsPreservesRowKind() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "embedding"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.INT_TYPE, VectorType.VECTOR_FLOAT_TYPE
+                        });
+
+        Float[] floatArray = {1.0f, 2.0f};
+        ByteBuffer buffer = VectorUtils.toByteBuffer(floatArray);
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, buffer});
+        row.setRowKind(RowKind.DELETE);
+        row.setTableId("test_table");
+
+        SeaTunnelRow converted = UnsupportedTypeConverterUtils.convertVectorFields(rowType, row);
+        Assertions.assertEquals(RowKind.DELETE, converted.getRowKind());
+        Assertions.assertEquals("test_table", converted.getTableId());
+        Assertions.assertArrayEquals(floatArray, (Float[]) converted.getField(1));
     }
 
     @Test
